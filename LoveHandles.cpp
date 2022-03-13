@@ -34,9 +34,14 @@ typedef NTSTATUS(NTAPI* _NtQueryObject)(
     PULONG ReturnLength
     );
 
-LONG(WINAPI* NtQueryInformationProcess)(HANDLE ProcessHandle,
-    ULONG ProcessInformationClass, PVOID ProcessInformation,
-    ULONG ProcessInformationLength, PULONG ReturnLength);
+typedef NTSTATUS(NTAPI* _NtQueryInformationProcess)(
+    HANDLE ProcessHandle,
+    DWORD ProcessInformationClass, 
+    PVOID ProcessInformation,
+    DWORD ProcessInformationLength,
+    PDWORD ReturnLength
+    );
+
 HMODULE hNtdll = GetModuleHandleA("ntdll.dll");
 
 typedef struct _SYSTEM_HANDLE
@@ -78,8 +83,9 @@ int main() {
         _NtDuplicateObject NtDuplicateObject =
             (_NtDuplicateObject)GetLibraryProcAddress((PSTR)"ntdll.dll", (PSTR)"NtDuplicateObject");
         _NtQueryObject NtQueryObject =
-            (_NtQueryObject)GetLibraryProcAddress((PSTR)"ntdll.dll", (PSTR)"NtQueryObject");
-        *(FARPROC*)&NtQueryInformationProcess = GetProcAddress(hNtdll, "NtQueryInformationProcess");
+            (_NtQueryObject)GetLibraryProcAddress((PSTR)"ntdll.dll", (PSTR)"NtQueryObject");        
+        _NtQueryInformationProcess NtQueryInformationProcess =
+            (_NtQueryInformationProcess)GetLibraryProcAddress((PSTR)"ntdll.dll", (PSTR)"NtQueryInformationProcess");
 
         // set up to query the system for a list of all the handles present on the system.
         NTSTATUS status;
@@ -151,7 +157,6 @@ int main() {
 
         } while (Process32Next(hProcessSnap, &pe32));
 
-        //CloseHandle(hThreadSnap);
         CloseHandle(hProcessSnap);
 
         // now we have two maps that contain threadid->processname mappings
@@ -205,7 +210,7 @@ int main() {
 
 
                 // If we have gotten this far we have a hit, print out the information
-                std::wcout << L"Process " << mNonPrivilegedProcessIds[handle.ProcessId] << L" (" << handle.ProcessId << ") " << L"has handle " << handle.Handle << " to process " << mPrivilegedProcessIds[(int)pbi[4]] << L" (" << (DWORD)pbi[4] << ")\n";
+                std::wcout << L"Process " << mNonPrivilegedProcessIds[handle.ProcessId] << L" (" << handle.ProcessId << ") has handle " << handle.Handle << " to process " << mPrivilegedProcessIds[(int)pbi[4]] << L" (" << (DWORD)pbi[4] << ")\n";
                 std::wcout << L"Permissions:\n";
                 if ((handle.GrantedAccess & PROCESS_ALL_ACCESS) == PROCESS_ALL_ACCESS)
                     std::wcout << L"\tPROCESS_ALL_ACCESS\n";
@@ -242,7 +247,7 @@ int main() {
                 {
                     if (mPrivilegedThreads.find(data) != mPrivilegedThreads.end()) {
                         // If we have gotten this far we have a hit, print out the information
-                        std::wcout << L"Process " << mNonPrivilegedProcessIds[handle.ProcessId] << L" (" << handle.ProcessId << ") " << L"has handle " << handle.Handle << "to thread " << data << "in process " << mPrivilegedThreads[data] << L"\n";
+                        std::wcout << L"Process " << mNonPrivilegedProcessIds[handle.ProcessId] << L" (" << handle.ProcessId << ") has handle " << handle.Handle << " to thread " << data << " in process " << mPrivilegedThreads[data] << L"\n";
                         std::wcout << L"Permissions:\n";
                         if ((handle.GrantedAccess & THREAD_ALL_ACCESS) == THREAD_ALL_ACCESS)
                             std::wcout << L"\tTHREAD_ALL_ACCESS\n";
